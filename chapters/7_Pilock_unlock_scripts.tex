@@ -1,0 +1,91 @@
+Τα σενάρια (scripts) ξεκλειδώματος του PiLock, γνωστά ως PiLockUnlockScripts, αποτελούν κομμάτι του λογισμικού του εξυπηρετητή. Συνδέονται με το Django Project του εξυπηρετητή μέσω ενός Git Submodule που έχει τοποθετηθεί στο main app.
+
+Η δέσμη των σεναρίων αποτελείται από ένα σενάριο γραμμένο σε Python και ένα πρόγραμμα Arduino, σε περίπτωση που ο χρήστης επιθυμεί να χρησιμοποιήσει Arduino για να πραγματοποιεί ξεκλείδωμα (βλ. \fullref{subsec:arduino_conn}).
+
+\begin{lstlisting}[language=python, caption=Σενάριο Ξεκλειδώματος Python, label={lst:python_unlockscript}]
+	import serial
+	from time import sleep
+	import RPi.GPIO as GPIO
+
+	# Mode switch
+	# 0 -> GPIO Unlock
+	# 1 -> Arduino Assisted Unlock (default before 0.3.1)
+	MODE = 0
+	# The GPIO pin used for the switch. Refer to your RPi's PinOut diagram.
+	# Used only when MODE = 0 
+	SW_PIN = 18 
+
+	def unlock():
+	    if MODE == 0:
+	        GPIO.setmode(GPIO.BCM)
+	        GPIO.setwarnings(False)
+	        GPIO.setup(SW_PIN, GPIO.OUT)
+	        GPIO.output(SW_PIN, GPIO.HIGH)
+	        sleep(5)
+	        GPIO.output(SW_PIN, GPIO.LOW)
+	        GPIO.cleanup()
+	    else:
+	        ser = serial.Serial(port="/dev/ttyACM0", baudrate=9600)
+	        ser.isOpen()
+	        sleep(2)  # Wait for the arduino to be ready.
+	        ser.write(b"ENABLE")
+	        ser.close()
+
+	if __name__ == "__main__":
+	    unlock()\end{lstlisting}
+
+\section{Ξεκλείδωμα μέσω GPIO}
+	Ο προεπιλεγμένος τρόπος ξεκλειδώματος, από την έκδοση \verb|0.3.1| και έπειτα, είναι το ξεκλείδωμα μέσω των δεκτών GPIO του Raspberry Pi. Αφότου συνδεθεί το Raspberry Pi με ένα συμβατό Relay Module (βλ. \fullref{subsec:gpio_conn}), μπορεί να εκτελεστεί το προεπιλεγμένο σενάριο ξεκλειδώματος (\fullref{lst:python_unlockscript}).
+
+	Προκειμένου να οριστεί ο τρόπος ξεκλειδώματος, πρέπει να αλλάξει η μεταβλητή \verb|MODE| σε 0, αν πρόκειται να χρησιμοποιηθεί το GPIO ως μέθοδος ξεκλειδώματος, και οτιδήποτε άλλο αν πρόκειται να χρησιμοποιηθεί Arduino για ξεκλείδωμα.
+
+	Αν πρόκειται να χρησιμοποιηθεί το GPIO ως μέθοδος ξεκλειδώματος, πρέπει να γίνει επίσης τροποποίηση της μεταβλητής \verb|SW_PIN|, προκειμένου να οριστεί το GPIO Pin το οποίο θα χρησιμοποιηθεί για το Relay. Στο παράδειγμα \autoref{fig:rpi_to_relay}, χρησιμοποιείται το Pin \#18, κατά BCM\sucite{rpi_pinout}.
+
+	Στην γραμμή 15, ορίζεται η λειτουργία αρίθμησης ως BCM και στην 16 γίνεται απενεργοποίηση των προειδοποιήσεων του συστήματος GPIO. Στην γραμμή 17 γίνεται ορισμός του GPIO Pin που ορίστηκε από την μεταβλητή \verb|SW_PIN| ως έξοδος. Στις γραμμές 18, 19 και 20 πραγματοποιείται το ξεκλείδωμα. Συγκεκριμένα, στέλνεται ψηφιακό σήμα 1 στο Relay Module μέσω του Pin εξόδου που έχει οριστεί. Κατά την συγκεκριμένη χρονική στιγμή, ο μηχανισμός ξεκλειδώματος της πόρτας (βλ. \fullref{ch:unlock_mechanism}) δέχεται ρεύμα και ενεργοποιείται, δηλαδή μπορεί κάποιος, αν σπρώξει την πόρτα, να την ανοίξει. Το σύστημα παραμένει στην συγκεκριμένη κατάσταση  για 5 δευτερόλεπτα (γραμμή 19) και έπειτα ξαναγυρνά το Pin εξόδου σε 0, και απενεργοποιείται ο μηχανισμός ξεκλειδώματος (γραμμή 20). Τέλος, γίνεται εκκαθάριση των GPIO (γραμμή 21). Το ξεκλείδωμα ολοκληρώθηκε.
+
+\section{Ξεκλείδωμα μέσω Arduino}
+	Προκειμένου να καταστεί δυνατόν να πραγματοποιούνται ξεκλειδώματα μέσω Arduino, θα πρέπει πρώτα να γίνει μεταφόρτωση του ακόλουθου σεναρίου προγραμματισμού στο Arduino, μέσω του Arduino IDE:
+
+	\begin{lstlisting}[language=C++, caption=Σενάριο Ξεκλειδώματος Arduino, label={lst:arduino_unlockscript}]
+	// The pin the relay is attached to.
+	const int RELAY_PIN = 2;
+	// How many seconds to keep the relay turned on.
+	const int DELAY = 5;
+
+	void setup() {
+	  // Setup everything...
+	  Serial.begin(9600);
+	  pinMode(RELAY_PIN, OUTPUT);
+	  pinMode(LED_BUILTIN, OUTPUT);
+	}
+
+	void loop() {
+	  // The Relay is active low, so write high to it in order to disable it.
+	  digitalWrite(RELAY_PIN, HIGH);
+	  digitalWrite(LED_BUILTIN, LOW);
+
+	  // If the serial port is available, read each character and concatenate it to a string.
+	  if (Serial.available() > 0){
+	    String content = "";
+	    char character;
+
+	    while(Serial.available()) {
+	        character = Serial.read();
+	        content.concat(character);
+	        delay(10); // Add a 10ms delay in order to receive the characters correctly.
+	    }
+
+	    // Finally, check the string, if it reads "ENABLE", turn on the relay, wait for 5 seconds, then turn it off.
+	    if (content == "ENABLE") {
+	      digitalWrite(RELAY_PIN, LOW);
+	      digitalWrite(LED_BUILTIN, HIGH);
+	      delay(DELAY * 1000);
+	    }
+	  }
+	}\end{lstlisting}
+
+	Προκειμένου να γίνει αντιληπτό το παραπάνω σενάριο, είναι αναγκαίο να αναλυθεί η ανάγκη χρήσης της σειριακής θύρας του Arduino. Όλες οι πλακέτες Arduino έχουν τουλάχιστον μία Hardware-Based σειριακή θύρα. Αυτή χρησιμοποιείται προκειμένου να γίνει ανταλλαγή δεδομένων με κάποιο υπολογιστή ή με κάποια άλλη συσκευή συνδεδεμένη στο Arduino\sucite{arduino_serial}. Στο PiLock, η σειριακή θύρα του Arduino χρησιμοποιείται για να ενεργοποιήσει το Arduino το Relay Module, την στιγμή που είναι επιθυμητό. Συγκεκριμένα, όταν η σειριακή θύρα λάβει την λέξη "ENABLE", γίνεται ενεργοποίηση του Relay Module (γραμμές 30-34). Στις γραμμές 23-27 γίνεται σχηματισμός της λέξης με έναν χαρακτήρα την φορά, καθώς λαμβάνεται από την σειριακή θύρα.
+
+	Και πάλι χρησιμοποιείται η ίδια λογική ενεργοποίησης του Relay Module με αυτή που χρησιμοποιείται όταν γίνεται ξεκλείδωμα μέσω GPIO, αλλά σε αυτή την περίπτωση γίνεται αντίστροφα (0 για ενεργοποίηση, 1 για απενεργοποίηση), καθώς το σενάριο είναι γραμμένο για Relays που δουλεύουν με λογική Active Low.
+
+	
