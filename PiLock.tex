@@ -11,6 +11,7 @@
 \usepackage{imakeidx}
 \usepackage{eurosym}
 \usepackage{appendix}
+\usepackage{indentfirst}
 \makeindex[title=Ευρετήριο Όρων]
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -58,18 +59,28 @@
 \graphicspath{ {images/} }
 
 \title{
-    {Κατασκευή Έξυπνης, Τηλεχειριζόμενης Κλειδαριάς Θυροτηλεφώνου με χρήση Τεχνολογιών Αιχμής }\\
-    {\large Πανεπιστήμιο Πειραιώς}
+    {Κατασκευή Έξυπνης, Τηλεχειριζόμενης Κλειδαριάς Σπιτιού/Πολυκατοικίας με χρήση Τεχνολογιών Αιχμής}\\
+    {\large Πανεπιστήμιο Πειραιώς}\\
+    {\includegraphics[width=0.5\textwidth]{unipi_logo.jpg}}
 }
-\author{Κυριάκος Δ. Γιαννάκης}
-\date{Day Τεστ Year}
+\author{
+    {\textbf{Κυριάκος Δ. Γιαννάκης}}\\
+    {Επιβλέπων Καθηγήτρια: Μαρία Βίρβου}
+}
+\date{28 Ιουνίου 2018}
 
 \begin{document}
     \maketitle
     
     \begin{abstract}
-        TODO
+        \input{chapters/abstract.tex}
     \end{abstract}
+
+    \chapter*{Άδεια Κυκλοφορίας της Πτυχιακής Εργασίας}
+    \input{chapters/0_1_licence.tex}
+
+    \chapter*{Ευχαριστίες}
+    \input{chapters/0_2_achnowledgements.tex}
     
     \tableofcontents
     
